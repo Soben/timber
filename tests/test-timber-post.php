@@ -336,6 +336,79 @@
 			$this->assertEquals('I am the one', $post->post_content);
 		}
 
+		function testCustomFieldPreviewRevision(){
+			global $current_user;
+			global $wp_query;
+
+			$post_id = $this->factory->post->create(array(
+				'post_author' => 5,
+			));
+			update_field('test_field', 'The custom field content', $post_id);
+
+			$assertCustomFieldVal = 'This has been revised';
+			$revision_id = $this->factory->post->create(array(
+				'post_type' => 'revision',
+				'post_status' => 'inherit',
+				'post_parent' => $post_id,
+			));
+			update_field('test_field', $assertCustomFieldVal, $revision_id);
+
+			$uid = $this->factory->user->create(array(
+				'user_login' => 'timber',
+				'user_pass' => 'timber',
+			));
+			$user = wp_set_current_user($uid);
+			$user->add_role('administrator');
+
+			$wp_query->queried_object_id = $post_id;
+			$wp_query->queried_object = get_post($post_id);
+			$_GET['preview'] = true;
+			$_GET['preview_nonce'] = wp_create_nonce('post_preview_' . $post_id);
+			$post = new TimberPost($post_id);
+
+			$str_direct = Timber::compile_string('{{post.test_field}}', array('post' => $post));
+			$str_getfield = Timber::compile_string('{{post.get_field(\'test_field\')}}', array('post' => $post));
+
+			$this->assertEquals( $assertCustomFieldVal, $str_direct );
+			$this->assertEquals( $assertCustomFieldVal, $str_getfield );
+		}
+
+		function testCustomFieldPreviewNotRevision() {
+			global $current_user;
+			global $wp_query;
+			$original_content = 'The custom field content';
+
+			$post_id = $this->factory->post->create(array(
+				'post_author' => 5,
+			));
+			update_field('test_field', $original_content, $post_id);
+
+			$assertCustomFieldVal = 'This has been revised';
+			$revision_id = $this->factory->post->create(array(
+				'post_type' => 'revision',
+				'post_status' => 'inherit',
+				'post_parent' => $post_id,
+			));
+			update_field('test_field', $assertCustomFieldVal, $revision_id);
+
+			$uid = $this->factory->user->create(array(
+				'user_login' => 'timber',
+				'user_pass' => 'timber',
+			));
+			$user = wp_set_current_user($uid);
+			$user->add_role('administrator');
+
+			$wp_query->queried_object_id = $post_id;
+			$wp_query->queried_object = get_post($post_id);
+			$post = new TimberPost($post_id);
+
+			$str_direct = Timber::compile_string('{{post.test_field}}', array('post' => $post));
+			$str_getfield = Timber::compile_string('{{post.get_field(\'test_field\')}}', array('post' => $post));
+
+			$this->assertEquals( $original_content, $str_direct );
+			$this->assertEquals( $original_content, $str_getfield );
+		}
+
 		function testContent(){
 			$quote = 'The way to do well is to do well.';
 			$post_id = $this->factory->post->create();
@@ -751,6 +824,76 @@
 			$post = new Timber\Post($post_id);
 			$form = $post->comment_form();
 			$this->assertStringStartsWith('<div id="respond"', trim($form));
+		}
+
+		function testPostWithoutGallery() {
+			$pid = $this->factory->post->create();
+			$post = new TimberPost($pid);
+
+			$this->assertEquals(null, $post->gallery());
+		}
+
+		function testPostWithGalleryCustomField() {
+			$pid = $this->factory->post->create();
+			update_post_meta($pid, 'gallery', 'foo');
+			$post = new Timber\Post($pid);
+			$this->assertEquals('foo', $post->gallery());
+		}
+
+		function testPostWithoutAudio() {
+			$pid = $this->factory->post->create();
+			$post = new TimberPost($pid);
+
+			$this->assertEquals(array(), $post->audio());
+		}
+
+		function testPostWithAudio() {
+			$quote = 'Named must your fear be before banish it you can.';
+			$quote .= '[embed]http://www.noiseaddicts.com/samples_1w72b820/280.mp3[/embed]';
+			$quote .= "No, try not. Do or do not. There is no try.";
+
+			$pid = $this->factory->post->create(array('post_content' => $quote));
+			$post = new TimberPost($pid);
+			$expected = array(
+				'<audio class="wp-audio-shortcode" id="audio-1-1" preload="none" style="width: 100%;" controls="controls"><source type="audio/mpeg" src="http://www.noiseaddicts.com/samples_1w72b820/280.mp3?_=1" /><a href="http://www.noiseaddicts.com/samples_1w72b820/280.mp3">http://www.noiseaddicts.com/samples_1w72b820/280.mp3</a></audio>',
+			);
+
+			$this->assertEquals($expected, $post->audio());
+		}
+
+		function testPostWithAudioCustomField() {
+			$pid = $this->factory->post->create();
+			update_post_meta($pid, 'audio', 'foo');
+			$post = new Timber\Post($pid);
+			$this->assertEquals('foo', $post->audio());
+		}
+
+		function testPostWithoutVideo() {
+			$pid = $this->factory->post->create();
+			$post = new TimberPost($pid);
+
+			$this->assertEquals(array(), $post->video());
+		}
+
+		function testPostWithVideo() {
+			$quote = 'Named must your fear be before banish it you can.';
+			$quote .= '[embed]https://www.youtube.com/watch?v=Jf37RalsnEs[/embed]';
+			$quote .= "No, try not. Do or do not. There is no try.";
+
+			$pid = $this->factory->post->create(array('post_content' => $quote));
+			$post = new TimberPost($pid);
+			$expected = array(
+				'<iframe width="500" height="281" src="https://www.youtube.com/embed/Jf37RalsnEs?feature=oembed" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>',
+			);
+
+			$this->assertEquals($expected, $post->video());
+		}
+
+		function testPostWithVideoCustomField() {
+			$pid = $this->factory->post->create();
+			update_post_meta($pid, 'video', 'foo');
+			$post = new Timber\Post($pid);
+			$this->assertEquals('foo', $post->video());
 		}
 
 		/**
