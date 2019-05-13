@@ -156,7 +156,7 @@ public function widget( $args, $instance ) {
 
 Well, if it works for widgets, why shouldn't it work for shortcodes? Of course it does!
 
-Let’s implement a `[youtube]` shortcode which embeds a youtube video.  
+Let’s implement a `[youtube]` shortcode which embeds a youtube video.
 For the desired usage of `[youtube id=xxxx]`, we only need a few lines of code:
 
 ```php
@@ -204,3 +204,72 @@ Timber and Twig can process your shortcodes by using the `{% filter shortcodes %
 {% endfilter %}
 ```
 
+## Password protected posts
+
+It’s recommended to use the [`post_password_required()`](https://developer.wordpress.org/reference/functions/post_password_required/) function to check if a post requires a password. You can add this check in all your single PHP template files
+
+**single.php**
+
+```php
+$context = Timber::context();
+$post = Timber::query_post();
+$context['post'] = $post;
+if ( post_password_required( $post->ID ) ) {
+    Timber::render( 'single-password.twig', $context );
+} else {
+    Timber::render( array( 'single-' . $post->ID . '.twig', 'single-' . $post->post_type . '.twig', 'single.twig' ), $context );
+}
+```
+
+**single-password.twig**
+
+```twig
+{% extends "base.twig" %}
+
+{% block content %}
+    {{ function('get_the_password_form') }}
+{% endblock %}
+```
+
+
+#### Using a Filter
+With a WordPress filter, you can use a specific PHP template for all your password protected posts. Note: this is accomplished using only standard WordPress functions. This is nothing special to Timber
+
+**functions.php**
+
+```php
+/**
+ * Use specific template for password protected posts.
+ *
+ * By default, this will use the `password-protected.php` template file. If you want password
+ * templates specific to a post type, use `password-protected-$posttype.php`.
+ */
+add_filter( 'template_include', 'get_password_protected_template', 99 );
+
+function get_password_protected_template( $template ) {
+    global $post;
+
+    if ( ! empty( $post ) && post_password_required( $post->ID ) ) {
+        $template = locate_template( [
+            'password-protected.php',
+            "password-protected-{$post->post_type}.php",
+        ] ) ?: $template;
+    }
+
+    return $template;
+};
+```
+
+With this filter, you can use a **password-protected.php** template file with the following contents:
+
+```php
+<?php
+
+$context                  = Timber::context();
+$context['post']          = new Timber\Post();
+$context['password_form'] = get_the_password_form();
+
+Timber::render( 'password-protected.twig', $context );
+```
+
+To display the password on the page, you could then use `{{ password_form }}` in your Twig file.

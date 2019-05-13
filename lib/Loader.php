@@ -103,6 +103,9 @@ class Loader {
 
 		// Run through template array
 		foreach ( $templates as $template ) {
+
+			// Remove any whitespace around the template name
+			$template = trim( $template );
 			// Use the Twig loader to test for existance
 			if ( $loader->exists($template) ) {
 				// Return name of existing template
@@ -151,7 +154,7 @@ class Loader {
 		$loader = $this->get_loader();
 		$params = array('debug' => WP_DEBUG, 'autoescape' => false);
 		if ( isset(Timber::$autoescape) ) {
-			$params['autoescape'] = Timber::$autoescape;
+			$params['autoescape'] = Timber::$autoescape === true ? 'html' : Timber::$autoescape;
 		}
 		if ( Timber::$cache === true ) {
 			Timber::$twig_cache = true;

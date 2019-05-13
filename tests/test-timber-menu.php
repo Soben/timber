@@ -118,7 +118,7 @@ class TestTimberMenu extends Timber_UnitTestCase {
 
 	function testMenuTwig() {
 		self::setPermalinkStructure();
-		$context = Timber::get_context();
+		$context = Timber::context();
 		self::_createTestMenu();
 		$this->go_to( home_url( '/child-page' ) );
 		$context['menu'] = new TimberMenu();
@@ -132,7 +132,7 @@ class TestTimberMenu extends Timber_UnitTestCase {
 		self::setPermalinkStructure();
 		self::_createTestMenu();
 		$this->go_to( home_url( '/home' ) );
-		$context = Timber::get_context();
+		$context = Timber::context();
 		$context['menu'] = new TimberMenu();
 		$str = Timber::compile( 'assets/menu-classes.twig', $context );
 		$str = trim( $str );
@@ -243,6 +243,27 @@ class TestTimberMenu extends Timber_UnitTestCase {
 				}
 			}
 		}
+	}
+
+	/**
+	 * Test the menu with applied filter in wp_nav_menu_objects
+	 */
+	function testNavMenuFilters() {
+		self::_createTestMenu();
+
+		add_filter( 'wp_nav_menu_objects', function( $menu_items ) {
+			$menu_items[4]->current = true;
+			$menu_items[4]->classes = array_merge( (array)$menu_items[4]->classes, array( 'current-menu-item' ) );
+			return $menu_items;
+		}, 2 );
+
+		$arguments = array(
+			'depth' => 1,
+		);
+		$menu = new TimberMenu(self::MENU_NAME, $arguments);
+		$menu_items = $menu->get_items();
+		$this->assertTrue( $menu_items[3]->current );
+		$this->assertContains( 'current-menu-item', $menu_items[3]->classes );
 	}
 
 	public static function buildMenu($name, $items) {
